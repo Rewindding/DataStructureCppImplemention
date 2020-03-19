@@ -2,11 +2,12 @@
 #include <cassert>
 using namespace std;
 typedef int ElemType;
-/*
-2020年1月18日
-红黑树
-删除尚未完成
-*/
+
+/**
+ *2020年1月18日
+ *2020年3月19日
+ *红黑树
+ **/
 enum Color
 {
 	Black, Red
@@ -26,7 +27,7 @@ struct RBTree {
 		NIL = new RBNode();
 		NIL->color = Black;
 		NIL->P = NIL->Left = NIL->Right = NULL;
-		NIL->Data = 666;
+		NIL->Data = 1<<30;
 		Root = RBTree::NIL;
 	}
 };
@@ -34,6 +35,11 @@ void insert(RBTree* T, ElemType X);
 void insertFixUp(RBTree* T, RBNode* z);
 void LeftRotation(RBTree* T, RBNode* z);
 void RightRotation(RBTree* T, RBNode* z);
+void TransPlant(RBTree* T, RBNode* u, RBNode* v);
+void Delete(RBTree* T, RBNode* z);
+void DeleteFixUp(RBTree* T, RBNode* z);
+RBNode* MinNode(RBTree* T, RBNode* z);
+RBNode* Find(RBTree* T, ElemType x);
 
 int main() {
 	int arr[] = { 11,2,1,7,8,6,3,5,2 };
@@ -41,6 +47,11 @@ int main() {
 	for (int n : arr) {
 		insert(T, n);
 	}
+	for (int n : arr) {
+		Delete(T, Find(T, n));
+		printf("%d deleted\n", n);
+	}
+	cout << "\n";
 	return 0;
 }
 void LeftRotation(RBTree* T, RBNode* z) {
@@ -140,4 +151,117 @@ void insert(RBTree* T, ElemType X) {
 	else if (y->Data > X)y->Left = z;
 	else y->Right = z;
 	insertFixUp(T, z);
+}
+
+void Delete(RBTree* T, RBNode* z) {
+	if (!z) return;
+	auto y = z;//y 指向要删除的结点，或者是要移动到树内部的结点
+	RBNode* x = NULL;
+	Color yOriginalColor = y->color;
+	if (z->Left == T->NIL) {
+		x = z->Right;
+		TransPlant(T, z, z->Right);
+	}
+	else if (z->Right == T->NIL) {
+		x = z->Left;
+		TransPlant(T, z, z->Left);
+	}
+	else {
+		y = MinNode(T, z->Right);
+		x = y->Right;
+		if (y->P != z) {
+			TransPlant(T, y, y->Right);
+			y->Right = z->Right;
+			z->Right->P = y;
+		}
+		TransPlant(T, z, y);
+		y->Left = z->Left;
+		z->Left->P = y;
+		y->color = z->color;
+	}
+	if (yOriginalColor == Black) {
+		DeleteFixUp(T, x);
+	}
+	delete z;
+}
+void DeleteFixUp(RBTree* T, RBNode* x) {
+	//node x has 'double black' or 'red-black' attribute
+	while (x != T->Root && x->color == Black) {
+		if (x->P->Left == x) {
+			auto w = x->P->Right;
+			if (w->color == Red) {//case1: w is red 
+				//transfer to case 2/3/4
+				w->color = Black;
+				w->P->color = Red;//swap colors to make w black
+			}
+			if (w->Left->color == Black && w->Right->color == Black) {//case2: w is black,and its sublings are all black
+				w->color = Red;
+				x = x->P;
+			}
+			else if (w->Right->color == Black) {//case3: w left is red and right is black
+				//after excute this, will transfer to case 4 directly
+				w->Left->color = Black;
+				w->color = Red;
+				RightRotation(T, w);
+				w = x->P->Right;
+			}
+			if (w->Right->color == Red) {//case4: w has a red right child
+				w->Right->color = Black;
+				w->color = x->P->color;
+				x->P->color = Black;
+				LeftRotation(T, x->P);
+				x = T->Root;
+			}
+		}
+		else if (x->P->Right == x) {//symmitric case
+			auto w = x->P->Left;
+			if (w->color == Red) {//case1':
+				w->color = Black;
+				w->P->color = Red;
+			}
+			if (w->Left->color == Black && w->Right->color == Black) {//case2':
+				w->color = Red;
+				x = x->P;
+			}
+			else	if (w->Left->color == Black) {//case3':
+					w->color = Red;
+					w->Right->color = Black;
+					LeftRotation(T, w);
+					w = x->P->Left;
+			}
+			if (w->Left->color == Red) {//case4':
+				w->color = x->P->color;
+				x->P->color = Black;
+				w->Left->color = Black;
+				RightRotation(T, x->P);
+				x = T->Root;
+			}
+			
+		}
+	}
+	x->color = Black;
+}
+void TransPlant(RBTree* T, RBNode* u, RBNode* v) {
+	//把v结点替换到u
+	if (u == T->Root)
+		T->Root = v;
+	else if (u == u->P->Left) {
+		u->P->Left = v;
+	}
+	else u->P->Right = v;
+	v->P = u->P;
+}
+RBNode* MinNode(RBTree* T, RBNode* z) {
+	if (!z) return z;
+	while (z->Left!=T->NIL) z = z->Left;
+	return z;
+}
+RBNode* Find(RBTree* T, ElemType x) {
+	auto p = T->Root;
+	while (p!=T->NIL) {
+		if (x > p->Data) p = p->Right;
+		else if (x < p->Data) p = p->Left;
+		else return p;
+	}
+	return NULL;
 }
